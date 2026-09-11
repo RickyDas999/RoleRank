@@ -1,0 +1,38 @@
+# Example candidate profile for RoleRank Milestone 1.
+#
+# This file contains only professional, non-sensitive, illustrative information.
+# It is used as the default profile when no candidate profile is supplied by the
+# caller, and is loaded by scripts/recommend.py and scripts/run_experiment.py.
+
+skills:
+  - Python
+  - Java
+  - AWS
+  - SQL
+  - REST APIs
+  - Git
+  - Docker
+  - FastAPI
+  - Spring Boot
+  - Linux
+
+experience: >
+  New graduate software engineer with internship experience building backend
+  services in Python and Java, deploying REST APIs on AWS (EC2, Lambda, S3),
+  and working with relational databases. Contributed to a full-stack web
+  application using FastAPI and React, and practiced CI/CD with GitHub Actions
+  and Docker.
+
+preferred_roles:
+  - Backend Engineer
+  - Software Engineer
+  - Full Stack Engineer
+
+preferred_locations:
+  - Remote
+  - New York, NY
+
+keywords:
+  - distributed systems
+  - cloud infrastructure
+  - open source

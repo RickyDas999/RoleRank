@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# MLflow local file store (generated, never tracked)
+mlruns/
+mlartifacts/
+
+# Sentence-transformers / HuggingFace model caches (never tracked)
+.cache/
+.hf_cache/
+huggingface_cache/
+
+# Candidate secrets / private data (never tracked)
+.env
+.env.*
+config/candidate_profile.yaml
+config/*.local.yaml
+*.resume
+*.pdf
+
+# Test / coverage artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
