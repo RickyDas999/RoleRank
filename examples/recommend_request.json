@@ -1,0 +1,5 @@
+{
+  "use_example_profile": true,
+  "ranker": "tfidf",
+  "top_k": 5
+}

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 RankerName = Literal["tfidf", "embedding"]
 JobSource = Literal["sample", "synthetic"]
@@ -123,11 +123,25 @@ class RecommendationItem(BaseModel):
 
 
 class RecommendRequest(BaseModel):
-    """POST /recommend request body."""
+    """POST /recommend request body.
 
-    profile: CandidateProfile
+    ``profile`` is optional so the API works without a private resume, but
+    the example profile is only ever substituted when the caller explicitly
+    sets ``use_example_profile: true`` -- it is never a silent default.
+    """
+
+    profile: CandidateProfile | None = None
+    use_example_profile: bool = False
     ranker: RankerName = "tfidf"
     top_k: int = Field(default=5, ge=1)
+
+    @model_validator(mode="after")
+    def _profile_or_explicit_example(self) -> "RecommendRequest":
+        if self.profile is None and not self.use_example_profile:
+            raise ValueError(
+                "Provide 'profile', or set 'use_example_profile': true to use the example candidate profile."
+            )
+        return self
 
 
 class RecommendResponse(BaseModel):
