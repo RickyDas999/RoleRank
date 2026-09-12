@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from rolerank.models import CandidateProfile, JobRecord
+from rolerank.ranking.embeddings import EmbeddingRanker
 from rolerank.ranking.tfidf import TfidfRanker
 
 
@@ -99,3 +100,55 @@ def test_recommend_includes_structured_reasons():
     results = TfidfRanker().recommend(profile, jobs, top_k=1)
     reasons = results[0].reasons
     assert any("Matched skills" in r for r in reasons)
+
+
+# EmbeddingRanker: invariants and a limited semantic fixture only. Avoid
+# asserting exact rank order across many sample jobs, which would be brittle
+# to model/dependency changes (see docs/milestone-1.md).
+
+
+def test_embedding_recommend_returns_exactly_k_unique_jobs():
+    profile = _profile()
+    jobs = [_job(f"JOB-{i}") for i in range(1, 5)]
+    results = EmbeddingRanker().recommend(profile, jobs, top_k=2)
+    assert len(results) == 2
+    assert len({r.job.job_id for r in results}) == 2
+
+
+def test_embedding_scores_are_non_increasing():
+    profile = _profile()
+    jobs = [_job(f"JOB-{i}") for i in range(1, 5)]
+    results = EmbeddingRanker().recommend(profile, jobs, top_k=4)
+    scores = [r.score for r in results]
+    assert scores == sorted(scores, reverse=True)
+
+
+def test_embedding_ties_broken_by_ascending_job_id():
+    profile = _profile()
+    jobs = [_job("JOB-B"), _job("JOB-A"), _job("JOB-C")]
+    results = EmbeddingRanker().recommend(profile, jobs, top_k=3)
+    assert [r.job.job_id for r in results] == ["JOB-A", "JOB-B", "JOB-C"]
+
+
+def test_embedding_semantic_match_outranks_unrelated_job():
+    profile = _profile(
+        skills=["Python", "AWS"],
+        experience="I build and deploy serverless cloud infrastructure for backend systems.",
+    )
+    # No literal word overlap with "serverless cloud infrastructure", but
+    # semantically close: AWS Lambda is a serverless compute service.
+    semantic_match = _job(
+        "JOB-SEMANTIC",
+        title="AWS Lambda Backend Engineer",
+        description="Build and operate AWS Lambda functions that power our backend product features.",
+        skills=["AWS Lambda", "Python"],
+    )
+    unrelated = _job(
+        "JOB-UNRELATED",
+        title="Graphic Designer",
+        description="Create marketing graphics and brand illustrations using Adobe Photoshop.",
+        skills=["Adobe Photoshop", "Illustrator", "Branding"],
+    )
+    results = EmbeddingRanker().recommend(profile, [semantic_match, unrelated], top_k=2)
+    assert results[0].job.job_id == "JOB-SEMANTIC"
+    assert results[0].score > results[1].score

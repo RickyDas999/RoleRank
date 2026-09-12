@@ -17,16 +17,19 @@ from pathlib import Path
 from rolerank.config import DEFAULT_JOBS_PATH, DEFAULT_PROFILE_PATH, load_candidate_profile, load_jobs
 from rolerank.models import RecommendationItem
 from rolerank.ranking.base import Ranker
+from rolerank.ranking.embeddings import EmbeddingRanker
 from rolerank.ranking.tfidf import TfidfRanker
 
-_RANKER_CHOICES = ("tfidf",)
+_RANKER_CHOICES = ("tfidf", "embedding")
 
 
 def build_ranker(name: str) -> Ranker:
-    """Construct a ranker by name. Only 'tfidf' is available until Checkpoint 3."""
+    """Construct a ranker by name."""
     if name == "tfidf":
         return TfidfRanker()
-    raise ValueError(f"Unknown or not-yet-implemented ranker: {name}")
+    if name == "embedding":
+        return EmbeddingRanker()
+    raise ValueError(f"Unknown ranker: {name}")
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
