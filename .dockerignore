@@ -1,0 +1,44 @@
+# Version control / editor
+.git/
+.gitignore
+.vscode/
+.idea/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Generated / local-only, never needed inside the image
+mlruns/
+mlartifacts/
+.cache/
+.hf_cache/
+huggingface_cache/
+
+# Not needed at container runtime (API only)
+tests/
+scripts/
+examples/
+docs/
+START_HERE.md
+CLAUDE.md
+
+# Candidate secrets / private data
+.env
+.env.*
+config/candidate_profile.yaml
+config/*.local.yaml
+*.resume
+*.pdf
