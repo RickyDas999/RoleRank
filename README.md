@@ -32,14 +32,16 @@ swetrack/
 │   └── recommend_request.json           # sample POST /recommend body
 ├── src/swetrack/
 │   ├── api.py                           # FastAPI: /health, /jobs, /recommend
-│   ├── config.py                        # YAML/CSV loading + validation
-│   ├── models.py                        # Pydantic schemas (candidate, job, API I/O)
-│   ├── preprocessing.py                 # text normalization + document construction
-│   ├── evaluation.py                    # Precision@K, NDCG@K
-│   └── ranking/
-│       ├── base.py                      # shared Ranker interface, sorting, explanations
-│       ├── tfidf.py                     # TfidfRanker (lexical baseline)
-│       └── embeddings.py                # EmbeddingRanker (sentence-transformers)
+│   └── domains/
+│       └── opportunities/               # Opportunity Intelligence (formerly RoleRank)
+│           ├── config.py                # YAML/CSV loading + validation
+│           ├── models.py                # Pydantic schemas (candidate, job, API I/O)
+│           ├── preprocessing.py         # text normalization + document construction
+│           ├── evaluation.py            # Precision@K, NDCG@K
+│           └── ranking/
+│               ├── base.py              # shared Ranker interface, sorting, explanations
+│               ├── tfidf.py             # TfidfRanker (lexical baseline)
+│               └── embeddings.py        # EmbeddingRanker (sentence-transformers)
 ├── scripts/
 │   ├── recommend.py                     # CLI: rank sample jobs, print top K
 │   └── run_experiment.py                # run both rankers, log to MLflow

@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from swetrack.config import (
+from swetrack.domains.opportunities.config import (
     DEFAULT_JOBS_PATH,
     DEFAULT_LABELS_PATH,
     DEFAULT_PROFILE_PATH,
@@ -14,8 +14,8 @@ from swetrack.config import (
     load_jobs,
     load_relevance_labels,
 )
-from swetrack.models import CandidateProfile, JobRecord
-from swetrack.preprocessing import build_candidate_text, build_job_text, normalize_list, normalize_text
+from swetrack.domains.opportunities.models import CandidateProfile, JobRecord
+from swetrack.domains.opportunities.preprocessing import build_candidate_text, build_job_text, normalize_list, normalize_text
 
 
 def test_normalize_text_collapses_whitespace_and_strips():

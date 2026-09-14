@@ -12,9 +12,9 @@ import pandas as pd
 import yaml
 from pydantic import ValidationError
 
-from swetrack.models import CandidateProfile, JobRecord
+from swetrack.domains.opportunities.models import CandidateProfile, JobRecord
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
+ROOT_DIR = Path(__file__).resolve().parents[4]
 DEFAULT_PROFILE_PATH = ROOT_DIR / "config" / "candidate_profile.example.yaml"
 DEFAULT_JOBS_PATH = ROOT_DIR / "data" / "sample_jobs.csv"
 DEFAULT_LABELS_PATH = ROOT_DIR / "data" / "relevance_labels.csv"

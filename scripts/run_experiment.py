@@ -18,7 +18,7 @@ from pathlib import Path
 
 import mlflow
 
-from swetrack.config import (
+from swetrack.domains.opportunities.config import (
     DEFAULT_JOBS_PATH,
     DEFAULT_LABELS_PATH,
     DEFAULT_PROFILE_PATH,
@@ -26,11 +26,11 @@ from swetrack.config import (
     load_jobs,
     load_relevance_labels,
 )
-from swetrack.evaluation import ndcg_at_k, precision_at_k
-from swetrack.models import CandidateProfile, JobRecord
-from swetrack.ranking.base import Ranker
-from swetrack.ranking.embeddings import EmbeddingRanker
-from swetrack.ranking.tfidf import TfidfRanker
+from swetrack.domains.opportunities.evaluation import ndcg_at_k, precision_at_k
+from swetrack.domains.opportunities.models import CandidateProfile, JobRecord
+from swetrack.domains.opportunities.ranking.base import Ranker
+from swetrack.domains.opportunities.ranking.embeddings import EmbeddingRanker
+from swetrack.domains.opportunities.ranking.tfidf import TfidfRanker
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 MLRUNS_DIR = ROOT_DIR / "mlruns"

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import re
 
-from swetrack.models import CandidateProfile, JobRecord
+from swetrack.domains.opportunities.models import CandidateProfile, JobRecord
 
 _WHITESPACE_RE = re.compile(r"\s+")
 

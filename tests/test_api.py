@@ -5,8 +5,8 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 from swetrack.api import app
-from swetrack.config import DEFAULT_JOBS_PATH, load_jobs
-from swetrack.ranking import embeddings
+from swetrack.domains.opportunities.config import DEFAULT_JOBS_PATH, load_jobs
+from swetrack.domains.opportunities.ranking import embeddings
 
 client = TestClient(app)
 

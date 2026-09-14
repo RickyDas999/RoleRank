@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from swetrack.models import CandidateProfile, JobRecord
-from swetrack.ranking.embeddings import EmbeddingRanker
-from swetrack.ranking.tfidf import TfidfRanker
+from swetrack.domains.opportunities.models import CandidateProfile, JobRecord
+from swetrack.domains.opportunities.ranking.embeddings import EmbeddingRanker
+from swetrack.domains.opportunities.ranking.tfidf import TfidfRanker
 
 
 def _profile(**overrides: object) -> CandidateProfile:

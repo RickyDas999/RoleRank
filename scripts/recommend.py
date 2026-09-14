@@ -14,11 +14,11 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from swetrack.config import DEFAULT_JOBS_PATH, DEFAULT_PROFILE_PATH, load_candidate_profile, load_jobs
-from swetrack.models import RecommendationItem
-from swetrack.ranking.base import Ranker
-from swetrack.ranking.embeddings import EmbeddingRanker
-from swetrack.ranking.tfidf import TfidfRanker
+from swetrack.domains.opportunities.config import DEFAULT_JOBS_PATH, DEFAULT_PROFILE_PATH, load_candidate_profile, load_jobs
+from swetrack.domains.opportunities.models import RecommendationItem
+from swetrack.domains.opportunities.ranking.base import Ranker
+from swetrack.domains.opportunities.ranking.embeddings import EmbeddingRanker
+from swetrack.domains.opportunities.ranking.tfidf import TfidfRanker
 
 _RANKER_CHOICES = ("tfidf", "embedding")
 
