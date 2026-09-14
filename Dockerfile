@@ -8,8 +8,8 @@
 # container is removed; mount a volume to persist/reuse it across runs:
 #
 #   docker run --rm -p 8000:8000 \
-#     -v rolerank-hf-cache:/root/.cache/huggingface \
-#     rolerank:milestone-1
+#     -v swetrack-hf-cache:/root/.cache/huggingface \
+#     swetrack:milestone-1
 #
 # TF-IDF requests and GET /health never trigger a download.
 
@@ -26,4 +26,4 @@ RUN pip install --no-cache-dir .
 
 EXPOSE 8000
 
-CMD ["uvicorn", "rolerank.api:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "swetrack.api:app", "--host", "0.0.0.0", "--port", "8000"]

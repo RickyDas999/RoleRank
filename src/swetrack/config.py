@@ -12,7 +12,7 @@ import pandas as pd
 import yaml
 from pydantic import ValidationError
 
-from rolerank.models import CandidateProfile, JobRecord
+from swetrack.models import CandidateProfile, JobRecord
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 DEFAULT_PROFILE_PATH = ROOT_DIR / "config" / "candidate_profile.example.yaml"

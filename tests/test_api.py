@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from rolerank.api import app
-from rolerank.config import DEFAULT_JOBS_PATH, load_jobs
-from rolerank.ranking import embeddings
+from swetrack.api import app
+from swetrack.config import DEFAULT_JOBS_PATH, load_jobs
+from swetrack.ranking import embeddings
 
 client = TestClient(app)
 

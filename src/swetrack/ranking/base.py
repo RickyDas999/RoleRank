@@ -11,7 +11,7 @@ import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
-from rolerank.models import CandidateProfile, JobRecord, MatchReasons, RankerName, RecommendationItem
+from swetrack.models import CandidateProfile, JobRecord, MatchReasons, RankerName, RecommendationItem
 
 _WORD_RE = re.compile(r"[a-z0-9]+")
 

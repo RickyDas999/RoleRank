@@ -10,9 +10,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from rolerank.models import CandidateProfile, JobRecord
-from rolerank.preprocessing import build_candidate_text, build_job_text
-from rolerank.ranking.base import Ranker, ScoredJob
+from swetrack.models import CandidateProfile, JobRecord
+from swetrack.preprocessing import build_candidate_text, build_job_text
+from swetrack.ranking.base import Ranker, ScoredJob
 
 DEFAULT_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 

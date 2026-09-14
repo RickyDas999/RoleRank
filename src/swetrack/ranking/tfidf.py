@@ -11,9 +11,9 @@ from __future__ import annotations
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-from rolerank.models import CandidateProfile, JobRecord
-from rolerank.preprocessing import build_candidate_text, build_job_text
-from rolerank.ranking.base import Ranker, ScoredJob
+from swetrack.models import CandidateProfile, JobRecord
+from swetrack.preprocessing import build_candidate_text, build_job_text
+from swetrack.ranking.base import Ranker, ScoredJob
 
 
 class TfidfRanker(Ranker):

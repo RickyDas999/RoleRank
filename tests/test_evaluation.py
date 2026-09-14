@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from rolerank.evaluation import ndcg_at_k, precision_at_k
+from swetrack.evaluation import ndcg_at_k, precision_at_k
 
 # Hand-calculated example:
 # labels: A=2, B=1, C=0, D=2 (graded relevance)

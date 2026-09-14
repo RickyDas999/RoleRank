@@ -3,19 +3,19 @@
 The sentence-embedding model is never touched by /health or /jobs. It is
 only loaded, lazily and cached once per process, the first time a
 POST /recommend request selects ranker="embedding" (see
-rolerank.ranking.embeddings).
+swetrack.ranking.embeddings).
 """
 
 from __future__ import annotations
 
 from fastapi import FastAPI, HTTPException, Query
 
-from rolerank import __version__
-from rolerank.config import DataLoadError, load_candidate_profile, load_jobs
-from rolerank.models import HealthResponse, JobRecord, RecommendRequest, RecommendResponse
-from rolerank.ranking.base import Ranker
-from rolerank.ranking.embeddings import EmbeddingRanker
-from rolerank.ranking.tfidf import TfidfRanker
+from swetrack import __version__
+from swetrack.config import DataLoadError, load_candidate_profile, load_jobs
+from swetrack.models import HealthResponse, JobRecord, RecommendRequest, RecommendResponse
+from swetrack.ranking.base import Ranker
+from swetrack.ranking.embeddings import EmbeddingRanker
+from swetrack.ranking.tfidf import TfidfRanker
 
 app = FastAPI(title="SWETrack API", version=__version__)
 

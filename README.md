@@ -22,7 +22,7 @@ feedback, and its similarity scores are not probabilities of getting an intervie
 ## Architecture
 
 ```text
-rolerank/
+swetrack/
 ├── config/
 │   └── candidate_profile.example.yaml   # example, non-sensitive profile
 ├── data/
@@ -30,7 +30,7 @@ rolerank/
 │   └── relevance_labels.csv             # manually curated 0/1/2 relevance labels
 ├── examples/
 │   └── recommend_request.json           # sample POST /recommend body
-├── src/rolerank/
+├── src/swetrack/
 │   ├── api.py                           # FastAPI: /health, /jobs, /recommend
 │   ├── config.py                        # YAML/CSV loading + validation
 │   ├── models.py                        # Pydantic schemas (candidate, job, API I/O)
@@ -82,7 +82,7 @@ python scripts/run_experiment.py --k 5
 Serve the API:
 
 ```bash
-uvicorn rolerank.api:app --host 127.0.0.1 --port 8000
+uvicorn swetrack.api:app --host 127.0.0.1 --port 8000
 ```
 
 In another terminal:
@@ -182,8 +182,8 @@ evidence that either ranker generalizes to a larger or different candidate popul
 ## Docker
 
 ```bash
-docker build -t rolerank:milestone-1 .
-docker run --rm -p 8000:8000 rolerank:milestone-1
+docker build -t swetrack:milestone-1 .
+docker run --rm -p 8000:8000 swetrack:milestone-1
 ```
 
 Then, from the host:
@@ -201,7 +201,7 @@ Hugging Face into `/root/.cache/huggingface`, which is lost when the container i
 removed. To persist/reuse that cache across runs, mount a volume:
 
 ```bash
-docker run --rm -p 8000:8000 -v rolerank-hf-cache:/root/.cache/huggingface rolerank:milestone-1
+docker run --rm -p 8000:8000 -v swetrack-hf-cache:/root/.cache/huggingface swetrack:milestone-1
 ```
 
 > Docker build/run were not executed in this development environment (Docker Desktop was
