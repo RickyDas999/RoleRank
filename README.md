@@ -181,6 +181,38 @@ similarity — the tie is in the *evaluation metric*, not in the raw output.
 This is evaluation plumbing validated on a tiny, single-profile demonstration set, not
 evidence that either ranker generalizes to a larger or different candidate population.
 
+## Knowledge tracing (Milestone 6, synthetic demonstration)
+
+There is no real multi-attempt learner history yet — the learning domain (activities,
+attempts, immutable `SkillEvent`s) was only introduced in Milestone 5. `scripts/run_knowledge_tracing_experiment.py`
+demonstrates the Bayesian Knowledge Tracing (BKT) mastery model against a deterministically
+seeded, clearly synthetic learner simulation, not real usage:
+
+```bash
+python scripts/run_knowledge_tracing_experiment.py
+```
+
+Example output (seed=42, 40 simulated opportunities):
+
+```text
+Model                             Brier score     Log loss
+BKT (default parameters)               0.1069       0.3530
+Historical success rate                0.1380       1.3056
+
+BKT scored lower Brier loss than the naive baseline on this run.
+```
+
+**Honest interpretation:** BKT's configured (not fit/learned) default parameters
+(`P(L0)=0.3, P(T)=0.1, P(G)=0.2, P(S)=0.1`) beat the naive "historical success rate so
+far" baseline on this one synthetic run — both by Brier score and, more sharply, by log
+loss. The naive baseline's log loss is dominated by early overconfidence: after a single
+early correct observation its estimate jumps to exactly 1.0, and any later miss is scored
+harshly. BKT's guess/slip terms keep its estimate away from the extremes, which is exactly
+the calibration behavior BKT is intended to provide. This is one run against a simulated
+learner with hand-picked "true" parameters different from BKT's defaults — it demonstrates
+the evaluation harness works, not that BKT will outperform the baseline on real interview
+practice data.
+
 ## Docker
 
 ```bash

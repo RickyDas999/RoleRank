@@ -1,24 +1,32 @@
 """Learning domain service layer: the only way callers write to this domain.
 
-``record_attempt`` is the important one -- it writes one Attempt plus one
-SkillEvent per skill the activity exercises as a single transaction. Either
-all of it commits, or none of it does (see test_learning.py for a forced
-mid-transaction failure that verifies the rollback).
+``record_attempt`` is the important one -- it writes one Attempt, one
+SkillEvent per skill the activity exercises, and one sequential BKT mastery
+update per skill, all as a single transaction. Either all of it commits, or
+none of it does (see test_learning.py for a forced mid-transaction failure
+that verifies the rollback).
 """
 
 from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from swetrack.domains.learning.models import AttemptRecord, LearningActivityRecord, SkillEventRecord
+from swetrack.domains.learning.models import (
+    AttemptRecord,
+    LearningActivityRecord,
+    SkillEventRecord,
+    SkillMasteryRecord,
+)
 from swetrack.domains.learning.schemas import (
     ActivityType,
     Attempt,
     LearningActivity,
     SkillEvent,
     SkillEventSourceType,
+    SkillMastery,
 )
 from swetrack.domains.skills.normalization import get_skill_by_id
+from swetrack.ml.knowledge_tracing.bkt import DEFAULT_PARAMETERS, BKTParameters, update_mastery
 
 _SOURCE_TYPE_BY_ACTIVITY_TYPE: dict[ActivityType, SkillEventSourceType] = {
     "coding": "coding_attempt",
@@ -56,12 +64,19 @@ def record_attempt(
     success: bool,
     notes: str = "",
     evidence_weight: float = 1.0,
+    bkt_params: BKTParameters = DEFAULT_PARAMETERS,
 ) -> tuple[Attempt, list[SkillEvent]]:
-    """Record one attempt and emit one SkillEvent per skill the activity exercises.
+    """Record one attempt, its SkillEvents, and each skill's updated BKT mastery.
+
+    Mastery is updated *sequentially*: one BKT step is applied to the cached
+    prior mastery (or ``bkt_params.p_init`` if this is the skill's first
+    observation), not a full replay of history -- see
+    ``ml/knowledge_tracing/bkt.py``.
 
     Raises ``ValueError`` if the activity does not exist. Raises and rolls
-    back if any SkillEvent violates its DB-level constraints (e.g. a
-    non-positive ``evidence_weight``) -- the Attempt is not left orphaned.
+    back if any SkillEvent or mastery row violates its DB-level constraints
+    (e.g. a non-positive ``evidence_weight``) -- neither the Attempt nor any
+    partial mastery update is left behind.
     """
     activity = session.get(LearningActivityRecord, activity_id)
     if activity is None:
@@ -86,6 +101,11 @@ def record_attempt(
             for skill_id in activity.skill_ids
         ]
         session.add_all(event_records)
+        session.flush()  # surface any SkillEvent constraint violation before touching mastery
+
+        for skill_id in activity.skill_ids:
+            _apply_sequential_mastery_update(session, skill_id, correct=success, params=bkt_params)
+
         session.commit()
     except Exception:
         session.rollback()
@@ -106,6 +126,29 @@ def get_skill_events(session: Session, skill_id: str) -> list[SkillEvent]:
         .all()
     )
     return [_to_skill_event(record) for record in records]
+
+
+def get_mastery(session: Session, skill_id: str) -> SkillMastery | None:
+    """Return the cached BKT mastery estimate for a skill, or None if it has no history yet."""
+    record = session.get(SkillMasteryRecord, skill_id)
+    return _to_mastery(record) if record is not None else None
+
+
+def _apply_sequential_mastery_update(
+    session: Session, skill_id: str, *, correct: bool, params: BKTParameters
+) -> SkillMasteryRecord:
+    """Apply one BKT step to the cached mastery for a skill, creating it if absent."""
+    record = session.get(SkillMasteryRecord, skill_id)
+    prior_mastery = record.mastery if record is not None else params.p_init
+    new_mastery = update_mastery(prior_mastery, correct, params)
+
+    if record is None:
+        record = SkillMasteryRecord(skill_id=skill_id, mastery=new_mastery, event_count=1)
+        session.add(record)
+    else:
+        record.mastery = new_mastery
+        record.event_count += 1
+    return record
 
 
 def _to_activity(record: LearningActivityRecord) -> LearningActivity:
@@ -137,4 +180,13 @@ def _to_skill_event(record: SkillEventRecord) -> SkillEvent:
         timestamp=record.timestamp,
         outcome=record.outcome,
         evidence_weight=record.evidence_weight,
+    )
+
+
+def _to_mastery(record: SkillMasteryRecord) -> SkillMastery:
+    return SkillMastery(
+        skill_id=record.skill_id,
+        mastery=record.mastery,
+        event_count=record.event_count,
+        updated_at=record.updated_at,
     )

@@ -67,3 +67,19 @@ class SkillEvent(BaseModel):
     timestamp: datetime
     outcome: float = Field(ge=0.0, le=1.0)
     evidence_weight: float = Field(gt=0.0, default=1.0)
+
+
+class SkillMastery(BaseModel):
+    """The current cached BKT mastery estimate for one skill.
+
+    Derived, not authoritative: always recomputable from that skill's full
+    SkillEvent history (see ``services.get_skill_events``). ``event_count``
+    records how many events have been folded into ``mastery`` so far.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    skill_id: str
+    mastery: float = Field(ge=0.0, le=1.0)
+    event_count: int = Field(ge=0)
+    updated_at: datetime
