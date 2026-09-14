@@ -17,7 +17,7 @@ from rolerank.ranking.base import Ranker
 from rolerank.ranking.embeddings import EmbeddingRanker
 from rolerank.ranking.tfidf import TfidfRanker
 
-app = FastAPI(title="RoleRank API", version=__version__)
+app = FastAPI(title="SWETrack API", version=__version__)
 
 
 def _build_ranker(name: str) -> Ranker:

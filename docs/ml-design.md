@@ -1,4 +1,4 @@
-# RoleRank ML Design — Milestone 1
+# SWETrack ML Design — Milestone 1 (Opportunity Intelligence)
 
 ## Framing
 

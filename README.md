@@ -1,21 +1,23 @@
-# RoleRank
+# SWETrack
 
-RoleRank is a personalized, content-based recommendation service that ranks new-grad
-software-engineering jobs against a candidate's skills, experience, and preferences.
-This is **Milestone 1**: a $0, fully local, resume-ready vertical slice — not a deployed
-product and not a system that has learned from real user behavior yet.
+SWETrack is a personalized ML platform for new-grad SWE recruiting and interview
+preparation. This repository currently implements its **Opportunity Intelligence**
+subsystem (formerly RoleRank): a content-based recommendation service that ranks
+new-grad software-engineering jobs against a candidate's skills, experience, and
+preferences. This is **Milestone 1**: a $0, fully local, resume-ready vertical slice —
+not a deployed product and not a system that has learned from real user behavior yet.
 
 ## Problem
 
 New-grad applicants review many postings with inconsistent titles and long descriptions.
 Keyword search can miss semantically relevant jobs, while generic job boards do not
-understand an individual candidate's technical background or role preferences. RoleRank
-ranks a supplied set of software-engineering jobs against a supplied candidate profile
-and explains the most visible matching signals.
+understand an individual candidate's technical background or role preferences. SWETrack's
+Opportunity Intelligence subsystem ranks a supplied set of software-engineering jobs
+against a supplied candidate profile and explains the most visible matching signals.
 
-RoleRank is currently an **unsupervised content-based retrieval/ranking system**. It is
-not collaborative filtering, not a supervised model trained on user feedback, and its
-similarity scores are not probabilities of getting an interview.
+Opportunity Intelligence is currently an **unsupervised content-based retrieval/ranking
+system**. It is not collaborative filtering, not a supervised model trained on user
+feedback, and its similarity scores are not probabilities of getting an interview.
 
 ## Architecture
 

@@ -1,6 +1,7 @@
-# RoleRank: Claude Code Handoff
+# SWETrack: Claude Code Handoff
 
-This package is the implementation contract for RoleRank's first resume-ready milestone.
+This package is the implementation contract for SWETrack's first resume-ready milestone
+(the Opportunity Intelligence subsystem, originally built as RoleRank).
 
 ## Goal
 

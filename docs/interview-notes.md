@@ -1,10 +1,10 @@
-# RoleRank Interview Notes — Milestone 1
+# SWETrack Interview Notes — Milestone 1 (Opportunity Intelligence)
 
 Use this as a study guide after the system works. Do not memorize wording without tracing it to the code.
 
 ## Thirty-second explanation
 
-RoleRank is a content-based recommendation service that ranks new-grad software-engineering jobs against a candidate profile. I built a TF-IDF baseline and a sentence-embedding ranker, compared them with Precision@K and NDCG@K on explicit relevance judgments, tracked experiments locally with MLflow, and served recommendations through a tested, containerized FastAPI API.
+SWETrack's Opportunity Intelligence subsystem (originally built as RoleRank) is a content-based recommendation service that ranks new-grad software-engineering jobs against a candidate profile. I built a TF-IDF baseline and a sentence-embedding ranker, compared them with Precision@K and NDCG@K on explicit relevance judgments, tracked experiments locally with MLflow, and served recommendations through a tested, containerized FastAPI API.
 
 ## What kind of ML system is this?
 
@@ -12,7 +12,7 @@ It is currently an unsupervised content-based retrieval/ranking system. It conve
 
 ## Why content-based recommendation?
 
-At cold start, RoleRank has rich item content—titles, skills, and descriptions—but no large candidate-job interaction history. Collaborative filtering would require many users and interactions. Content-based ranking can provide useful recommendations immediately and later become one component of a hybrid system.
+At cold start, Opportunity Intelligence has rich item content—titles, skills, and descriptions—but no large candidate-job interaction history. Collaborative filtering would require many users and interactions. Content-based ranking can provide useful recommendations immediately and later become one component of a hybrid system.
 
 ## TF-IDF
 

@@ -1,10 +1,10 @@
-# RoleRank Product Requirements — Milestone 1
+# SWETrack Product Requirements — Milestone 1 (Opportunity Intelligence)
 
 ## Problem
 
 New-grad applicants review many postings with inconsistent titles and long descriptions. Keyword search can miss semantically relevant jobs, while generic job boards do not understand an individual candidate's technical background or role preferences.
 
-RoleRank ranks a supplied set of software-engineering jobs against a supplied candidate profile and explains the most visible matching signals.
+SWETrack's Opportunity Intelligence subsystem ranks a supplied set of software-engineering jobs against a supplied candidate profile and explains the most visible matching signals.
 
 ## Primary user
 
