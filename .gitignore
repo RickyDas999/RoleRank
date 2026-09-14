@@ -15,6 +15,9 @@ env/
 mlruns/
 mlartifacts/
 
+# Local SQLite database (generated, never tracked)
+var/
+
 # Sentence-transformers / HuggingFace model caches (never tracked)
 .cache/
 .hf_cache/
