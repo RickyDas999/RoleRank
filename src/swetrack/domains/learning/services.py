@@ -10,6 +10,8 @@ failure that verifies the rollback).
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 from sqlalchemy.orm import Session
 
 from swetrack.domains.learning.models import (
@@ -29,10 +31,21 @@ from swetrack.domains.learning.schemas import (
     SkillEvent,
     SkillEventSourceType,
     SkillMastery,
+    StudyRecommendation,
     SystemDesignAttemptResult,
 )
 from swetrack.domains.skills.normalization import get_skill_by_id
 from swetrack.ml.knowledge_tracing.bkt import DEFAULT_PARAMETERS, BKTParameters, update_mastery
+from swetrack.ml.study_ranking.ranker import (
+    DEFAULT_WEIGHTS,
+    StudyRankingComponents,
+    StudyRankingWeights,
+    compute_difficulty_fit,
+    compute_mastery_gap,
+    compute_repetition_penalty,
+    compute_staleness,
+    score_activity,
+)
 
 _SOURCE_TYPE_BY_ACTIVITY_TYPE: dict[ActivityType, SkillEventSourceType] = {
     "coding": "coding_attempt",
@@ -340,6 +353,80 @@ def get_mastery(session: Session, skill_id: str) -> SkillMastery | None:
     """Return the cached BKT mastery estimate for a skill, or None if it has no history yet."""
     record = session.get(SkillMasteryRecord, skill_id)
     return _to_mastery(record) if record is not None else None
+
+
+def get_study_recommendations(
+    session: Session,
+    *,
+    top_k: int = 5,
+    weights: StudyRankingWeights = DEFAULT_WEIGHTS,
+    bkt_params: BKTParameters = DEFAULT_PARAMETERS,
+    now: datetime | None = None,
+) -> list[StudyRecommendation]:
+    """Rank every learning activity by an explainable heuristic (CLAUDE.md Phase 10).
+
+    A deterministic heuristic, not a learned ranking model: only the mastery
+    estimates it reads (via ``SkillMasteryRecord``) come from actual ML
+    (BKT). Job/interview demand components are deferred to M10, which
+    connects opportunity skill requirements to this domain -- there is no
+    such signal to rank against yet.
+
+    Per activity, each of its skills contributes a mastery gap and a
+    staleness reading (days since that skill's mastery was last updated,
+    via ``SkillMasteryRecord.updated_at``); the activity's score uses the
+    mean across its skills. ``repetition_penalty`` counts this specific
+    activity's own attempts in the last 7 days, independent of skill.
+    """
+    now = now or datetime.now(timezone.utc)
+    seven_days_ago = now - timedelta(days=7)
+
+    recommendations: list[StudyRecommendation] = []
+    for activity in session.query(LearningActivityRecord).all():
+        mastery_gaps: list[float] = []
+        staleness_readings: list[float] = []
+        for skill_id in activity.skill_ids:
+            mastery_record = session.get(SkillMasteryRecord, skill_id)
+            mastery = mastery_record.mastery if mastery_record is not None else bkt_params.p_init
+            mastery_gaps.append(compute_mastery_gap(mastery))
+
+            if mastery_record is not None:
+                # SQLite has no native timezone-aware storage: DateTime(timezone=True)
+                # round-trips as naive even though _utcnow() always writes UTC, so
+                # naive values read back here are known to already be UTC.
+                updated_at = mastery_record.updated_at
+                if updated_at.tzinfo is None:
+                    updated_at = updated_at.replace(tzinfo=timezone.utc)
+                days_since = (now - updated_at).total_seconds() / 86400.0
+                staleness_readings.append(compute_staleness(days_since))
+            else:
+                staleness_readings.append(compute_staleness(None))
+
+        mastery_gap = sum(mastery_gaps) / len(mastery_gaps) if mastery_gaps else 1.0
+        staleness = sum(staleness_readings) / len(staleness_readings) if staleness_readings else 1.0
+        difficulty_fit = compute_difficulty_fit(mastery_gap, activity.difficulty)
+
+        recent_attempt_count = (
+            session.query(AttemptRecord)
+            .filter(AttemptRecord.activity_id == activity.id, AttemptRecord.timestamp >= seven_days_ago)
+            .count()
+        )
+        repetition_penalty = compute_repetition_penalty(recent_attempt_count)
+
+        components = StudyRankingComponents(
+            mastery_gap=mastery_gap,
+            staleness=staleness,
+            difficulty_fit=difficulty_fit,
+            repetition_penalty=repetition_penalty,
+        )
+        score = score_activity(components, weights)
+        recommendations.append(
+            StudyRecommendation(activity=_to_activity(activity), score=score, components=components)
+        )
+
+    # Secondary key (slug) makes tie order deterministic rather than
+    # depending on incidental DB row order.
+    recommendations.sort(key=lambda recommendation: (-recommendation.score, recommendation.activity.slug))
+    return recommendations[:top_k]
 
 
 def _apply_sequential_mastery_update(

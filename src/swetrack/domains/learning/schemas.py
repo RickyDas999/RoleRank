@@ -12,6 +12,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from swetrack.ml.study_ranking.ranker import StudyRankingComponents
+
 ActivityType = Literal["coding", "system_design", "concept_review"]
 SkillEventSourceType = Literal[
     "coding_attempt",
@@ -112,6 +114,22 @@ class SystemDesignAttemptResult(BaseModel):
 
     attempt_id: str
     scores: dict[str, float] = Field(default_factory=dict)
+
+
+class StudyRecommendation(BaseModel):
+    """One ranked study suggestion with a component-level breakdown (CLAUDE.md Phase 10).
+
+    ``score`` is a deterministic heuristic, not a learned ranking -- only the
+    mastery estimates feeding ``components.mastery_gap`` come from actual ML
+    (BKT). See ``ml/study_ranking/ranker.py`` and
+    ``services.get_study_recommendations``.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    activity: LearningActivity
+    score: float = Field(ge=0.0, le=1.0)
+    components: StudyRankingComponents
 
 
 class SkillMastery(BaseModel):
