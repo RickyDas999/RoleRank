@@ -13,8 +13,9 @@ import yaml
 from pydantic import ValidationError
 
 from swetrack.domains.opportunities.models import CandidateProfile, JobRecord
+from swetrack.infrastructure.paths import find_repo_root
 
-ROOT_DIR = Path(__file__).resolve().parents[4]
+ROOT_DIR = find_repo_root()
 DEFAULT_PROFILE_PATH = ROOT_DIR / "config" / "candidate_profile.example.yaml"
 DEFAULT_JOBS_PATH = ROOT_DIR / "data" / "sample_jobs.csv"
 DEFAULT_LABELS_PATH = ROOT_DIR / "data" / "relevance_labels.csv"

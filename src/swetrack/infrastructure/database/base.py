@@ -11,12 +11,13 @@ driver dependency -- the ORM models and service layers built on top of
 from __future__ import annotations
 
 import os
-from pathlib import Path
 
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-ROOT_DIR = Path(__file__).resolve().parents[4]
+from swetrack.infrastructure.paths import find_repo_root
+
+ROOT_DIR = find_repo_root()
 DEFAULT_DATABASE_URL = f"sqlite:///{ROOT_DIR / 'var' / 'swetrack.db'}"
 
 

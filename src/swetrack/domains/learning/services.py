@@ -1,10 +1,11 @@
 """Learning domain service layer: the only way callers write to this domain.
 
-``record_attempt`` is the important one -- it writes one Attempt, one
-SkillEvent per skill the activity exercises, and one sequential BKT mastery
-update per skill, all as a single transaction. Either all of it commits, or
-none of it does (see test_learning.py for a forced mid-transaction failure
-that verifies the rollback).
+``record_attempt`` and ``record_coding_attempt`` are the important ones --
+each writes one Attempt, one SkillEvent per skill the activity exercises,
+and one sequential BKT mastery update per skill (plus, for coding, one
+CodingAttemptDetail row) as a single transaction. Either all of it commits,
+or none of it does (see test_learning.py for a forced mid-transaction
+failure that verifies the rollback).
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from swetrack.domains.learning.models import (
     AttemptRecord,
+    CodingAttemptRecord,
     LearningActivityRecord,
     SkillEventRecord,
     SkillMasteryRecord,
@@ -20,7 +22,10 @@ from swetrack.domains.learning.models import (
 from swetrack.domains.learning.schemas import (
     ActivityType,
     Attempt,
+    CodingAttemptDetail,
+    Difficulty,
     LearningActivity,
+    MistakeType,
     SkillEvent,
     SkillEventSourceType,
     SkillMastery,
@@ -42,6 +47,7 @@ def create_activity(
     title: str,
     activity_type: ActivityType,
     skill_ids: list[str],
+    difficulty: Difficulty | None = None,
 ) -> LearningActivity:
     """Create a practiceable activity, validating every skill_id against the canonical taxonomy."""
     unknown = [skill_id for skill_id in skill_ids if get_skill_by_id(skill_id) is None]
@@ -49,12 +55,53 @@ def create_activity(
         raise ValueError(f"Unknown skill id(s): {unknown}")
 
     record = LearningActivityRecord(
-        slug=slug, title=title, activity_type=activity_type, skill_ids=list(skill_ids)
+        slug=slug, title=title, activity_type=activity_type, skill_ids=list(skill_ids), difficulty=difficulty
     )
     session.add(record)
     session.commit()
     session.refresh(record)
     return _to_activity(record)
+
+
+def _write_attempt_and_mastery(
+    session: Session,
+    *,
+    activity: LearningActivityRecord,
+    success: bool,
+    notes: str,
+    evidence_weight: float,
+    bkt_params: BKTParameters,
+) -> tuple[AttemptRecord, list[SkillEventRecord]]:
+    """Atomic core shared by every attempt-recording path: NOT committed here.
+
+    Writes one Attempt, one SkillEvent per skill the activity exercises, and
+    each skill's sequential BKT mastery update. The caller is responsible
+    for committing (and rolling back on any exception).
+    """
+    source_type = _SOURCE_TYPE_BY_ACTIVITY_TYPE[activity.activity_type]  # type: ignore[index]
+    outcome = 1.0 if success else 0.0
+
+    attempt_record = AttemptRecord(activity_id=activity.id, success=success, notes=notes)
+    session.add(attempt_record)
+    session.flush()  # assign attempt_record.id without committing yet
+
+    event_records = [
+        SkillEventRecord(
+            skill_id=skill_id,
+            source_type=source_type,
+            source_id=attempt_record.id,
+            outcome=outcome,
+            evidence_weight=evidence_weight,
+        )
+        for skill_id in activity.skill_ids
+    ]
+    session.add_all(event_records)
+    session.flush()  # surface any SkillEvent constraint violation before touching mastery
+
+    for skill_id in activity.skill_ids:
+        _apply_sequential_mastery_update(session, skill_id, correct=success, params=bkt_params)
+
+    return attempt_record, event_records
 
 
 def record_attempt(
@@ -82,30 +129,15 @@ def record_attempt(
     if activity is None:
         raise ValueError(f"Unknown learning activity id: {activity_id!r}")
 
-    source_type = _SOURCE_TYPE_BY_ACTIVITY_TYPE[activity.activity_type]  # type: ignore[index]
-    outcome = 1.0 if success else 0.0
-
     try:
-        attempt_record = AttemptRecord(activity_id=activity_id, success=success, notes=notes)
-        session.add(attempt_record)
-        session.flush()  # assign attempt_record.id without committing yet
-
-        event_records = [
-            SkillEventRecord(
-                skill_id=skill_id,
-                source_type=source_type,
-                source_id=attempt_record.id,
-                outcome=outcome,
-                evidence_weight=evidence_weight,
-            )
-            for skill_id in activity.skill_ids
-        ]
-        session.add_all(event_records)
-        session.flush()  # surface any SkillEvent constraint violation before touching mastery
-
-        for skill_id in activity.skill_ids:
-            _apply_sequential_mastery_update(session, skill_id, correct=success, params=bkt_params)
-
+        attempt_record, event_records = _write_attempt_and_mastery(
+            session,
+            activity=activity,
+            success=success,
+            notes=notes,
+            evidence_weight=evidence_weight,
+            bkt_params=bkt_params,
+        )
         session.commit()
     except Exception:
         session.rollback()
@@ -115,6 +147,77 @@ def record_attempt(
     for record in event_records:
         session.refresh(record)
     return _to_attempt(attempt_record), [_to_skill_event(record) for record in event_records]
+
+
+def record_coding_attempt(
+    session: Session,
+    *,
+    activity_id: str,
+    success: bool,
+    hints_used: int = 0,
+    confidence: float | None = None,
+    mistake_type: MistakeType | None = None,
+    duration_seconds: float | None = None,
+    notes: str = "",
+    evidence_weight: float = 1.0,
+    bkt_params: BKTParameters = DEFAULT_PARAMETERS,
+) -> tuple[Attempt, CodingAttemptDetail, list[SkillEvent]]:
+    """Record one coding attempt: an Attempt, its CodingAttemptDetail, SkillEvents, and mastery.
+
+    All in one transaction (extends ``_write_attempt_and_mastery``). Raises
+    ``ValueError`` if the activity does not exist, is not a ``"coding"``
+    activity, or if ``mistake_type`` is set on a successful attempt (a
+    successful attempt has nothing to categorize as a mistake).
+    """
+    activity = session.get(LearningActivityRecord, activity_id)
+    if activity is None:
+        raise ValueError(f"Unknown learning activity id: {activity_id!r}")
+    if activity.activity_type != "coding":
+        raise ValueError(f"Activity {activity_id!r} is not a coding activity (type={activity.activity_type!r})")
+    if success and mistake_type is not None:
+        raise ValueError("mistake_type must be None for a successful attempt")
+
+    try:
+        attempt_record, event_records = _write_attempt_and_mastery(
+            session,
+            activity=activity,
+            success=success,
+            notes=notes,
+            evidence_weight=evidence_weight,
+            bkt_params=bkt_params,
+        )
+
+        detail_record = CodingAttemptRecord(
+            attempt_id=attempt_record.id,
+            hints_used=hints_used,
+            confidence=confidence,
+            mistake_type=mistake_type,
+            duration_seconds=duration_seconds,
+        )
+        session.add(detail_record)
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+
+    session.refresh(attempt_record)
+    for record in event_records:
+        session.refresh(record)
+    session.refresh(detail_record)
+    return (
+        _to_attempt(attempt_record),
+        _to_coding_attempt_detail(detail_record),
+        [_to_skill_event(record) for record in event_records],
+    )
+
+
+def get_coding_attempt(session: Session, attempt_id: str) -> tuple[Attempt, CodingAttemptDetail] | None:
+    """Return an Attempt and its coding-specific detail, or None if either is missing."""
+    attempt_record = session.get(AttemptRecord, attempt_id)
+    detail_record = session.get(CodingAttemptRecord, attempt_id)
+    if attempt_record is None or detail_record is None:
+        return None
+    return _to_attempt(attempt_record), _to_coding_attempt_detail(detail_record)
 
 
 def get_skill_events(session: Session, skill_id: str) -> list[SkillEvent]:
@@ -158,6 +261,7 @@ def _to_activity(record: LearningActivityRecord) -> LearningActivity:
         title=record.title,
         activity_type=record.activity_type,  # type: ignore[arg-type]
         skill_ids=list(record.skill_ids),
+        difficulty=record.difficulty,  # type: ignore[arg-type]
     )
 
 
@@ -180,6 +284,16 @@ def _to_skill_event(record: SkillEventRecord) -> SkillEvent:
         timestamp=record.timestamp,
         outcome=record.outcome,
         evidence_weight=record.evidence_weight,
+    )
+
+
+def _to_coding_attempt_detail(record: CodingAttemptRecord) -> CodingAttemptDetail:
+    return CodingAttemptDetail(
+        attempt_id=record.attempt_id,
+        hints_used=record.hints_used,
+        confidence=record.confidence,
+        mistake_type=record.mistake_type,  # type: ignore[arg-type]
+        duration_seconds=record.duration_seconds,
     )
 
 

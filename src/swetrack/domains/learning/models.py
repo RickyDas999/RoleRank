@@ -40,6 +40,7 @@ class LearningActivityRecord(Base):
     title: Mapped[str] = mapped_column(String)
     activity_type: Mapped[str] = mapped_column(String)
     skill_ids: Mapped[list[str]] = mapped_column(JSON, default=list)
+    difficulty: Mapped[str | None] = mapped_column(String, nullable=True, default=None)
 
 
 class AttemptRecord(Base):
@@ -66,6 +67,35 @@ class SkillEventRecord(Base):
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     outcome: Mapped[float] = mapped_column(Float)
     evidence_weight: Mapped[float] = mapped_column(Float, default=1.0)
+
+
+class CodingAttemptRecord(Base):
+    """The coding-specific extension of one AttemptRecord (1:1, keyed by attempt_id).
+
+    Kept separate from AttemptRecord rather than adding nullable columns to
+    it, since these fields are only meaningful for coding attempts -- a
+    System Design or concept-review attempt has no "hints used" or "mistake
+    type." Phase 8's System Design rubric will get its own extension table
+    the same way rather than reusing this one.
+    """
+
+    __tablename__ = "coding_attempt_details"
+    __table_args__ = (
+        CheckConstraint("hints_used >= 0", name="ck_coding_attempt_hints_used_nonnegative"),
+        CheckConstraint(
+            "confidence IS NULL OR (confidence >= 0.0 AND confidence <= 1.0)",
+            name="ck_coding_attempt_confidence_range",
+        ),
+        CheckConstraint(
+            "duration_seconds IS NULL OR duration_seconds > 0.0", name="ck_coding_attempt_duration_positive"
+        ),
+    )
+
+    attempt_id: Mapped[str] = mapped_column(String, ForeignKey("attempts.id"), primary_key=True)
+    hints_used: Mapped[int] = mapped_column(Integer, default=0)
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True, default=None)
+    mistake_type: Mapped[str | None] = mapped_column(String, nullable=True, default=None)
+    duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True, default=None)
 
 
 class SkillMasteryRecord(Base):

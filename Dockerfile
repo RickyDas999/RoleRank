@@ -17,11 +17,22 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# The installed package resolves data/config paths via SWETRACK_ROOT_DIR
+# (see src/swetrack/infrastructure/paths.py) since a non-editable pip
+# install puts it under site-packages, with no pyproject.toml above it to
+# auto-detect the root from.
+ENV SWETRACK_ROOT_DIR=/app
+
 COPY pyproject.toml README.md ./
 COPY src ./src
 COPY config ./config
 COPY data ./data
 
+# Install the CPU-only torch build first: the default PyPI wheel pulls in
+# the CUDA runtime (cudnn, cublas, cusolver, ...) at 500MB+ per package,
+# which is both wasted (this image never has GPU access) and prone to
+# timing out mid-download. The CPU wheel is a fraction of the size.
+RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch
 RUN pip install --no-cache-dir .
 
 EXPOSE 8000

@@ -2,10 +2,8 @@
 
 These are decoupled from the SQLAlchemy ORM models in ``models.py`` so
 callers never hold a session-bound ORM instance -- they get back a frozen
-Pydantic snapshot instead. Richer, activity-type-specific attempt fields
-(hints used, mistake category, System Design rubric scores) are deferred to
-the milestones that actually need them (M7 coding practice, M8 System
-Design practice) rather than speculatively added here.
+Pydantic snapshot instead. System-Design-specific attempt fields (rubric
+scores) are deferred to M8 rather than speculatively added here.
 """
 
 from __future__ import annotations
@@ -22,6 +20,19 @@ SkillEventSourceType = Literal[
     "interview_feedback",
     "concept_review",
 ]
+Difficulty = Literal["easy", "medium", "hard"]
+MistakeType = Literal[
+    "algorithm_selection",
+    "state_definition",
+    "recurrence",
+    "off_by_one",
+    "pointer_management",
+    "base_case",
+    "complexity",
+    "data_structure_choice",
+    "mutation",
+    "edge_case",
+]
 
 
 class LearningActivity(BaseModel):
@@ -34,6 +45,7 @@ class LearningActivity(BaseModel):
     title: str
     activity_type: ActivityType
     skill_ids: list[str] = Field(default_factory=list)
+    difficulty: Difficulty | None = None
 
 
 class Attempt(BaseModel):
@@ -67,6 +79,24 @@ class SkillEvent(BaseModel):
     timestamp: datetime
     outcome: float = Field(ge=0.0, le=1.0)
     evidence_weight: float = Field(gt=0.0, default=1.0)
+
+
+class CodingAttemptDetail(BaseModel):
+    """The coding-specific extension of one Attempt (CLAUDE.md Phase 7).
+
+    ``mistake_type`` is only meaningful for a failed attempt -- an attempt
+    that succeeded has nothing to categorize as a mistake. Validated in
+    ``services.record_coding_attempt``, not here, since it depends on the
+    sibling Attempt's ``success`` value.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    attempt_id: str
+    hints_used: int = Field(ge=0, default=0)
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    mistake_type: MistakeType | None = None
+    duration_seconds: float | None = Field(default=None, gt=0.0)
 
 
 class SkillMastery(BaseModel):
