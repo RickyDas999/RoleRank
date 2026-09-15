@@ -23,6 +23,7 @@ def test_taxonomy_is_nonempty_and_covers_expected_categories():
         "data_systems",
         "distributed_systems",
         "reliability",
+        "system_design",
     }
 
 

@@ -2,8 +2,7 @@
 
 These are decoupled from the SQLAlchemy ORM models in ``models.py`` so
 callers never hold a session-bound ORM instance -- they get back a frozen
-Pydantic snapshot instead. System-Design-specific attempt fields (rubric
-scores) are deferred to M8 rather than speculatively added here.
+Pydantic snapshot instead.
 """
 
 from __future__ import annotations
@@ -97,6 +96,22 @@ class CodingAttemptDetail(BaseModel):
     confidence: float | None = Field(default=None, ge=0.0, le=1.0)
     mistake_type: MistakeType | None = None
     duration_seconds: float | None = Field(default=None, gt=0.0)
+
+
+class SystemDesignAttemptResult(BaseModel):
+    """The rubric scores recorded for one System Design attempt (CLAUDE.md Phase 8).
+
+    Unlike ``CodingAttemptDetail``, there is no dedicated details table: each
+    score is already stored as that skill's SkillEvent.outcome
+    (source_type="system_design_attempt", source_id=attempt_id), so this is
+    reconstructed from those events in ``services.get_system_design_attempt``
+    rather than duplicating the data in a second table.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    attempt_id: str
+    scores: dict[str, float] = Field(default_factory=dict)
 
 
 class SkillMastery(BaseModel):

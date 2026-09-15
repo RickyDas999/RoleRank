@@ -57,4 +57,17 @@ TAXONOMY: list[Skill] = [
     _skill("idempotency", "Idempotency", "reliability"),
     _skill("failover", "Failover", "reliability"),
     _skill("observability", "Observability", "reliability", ["monitoring", "logging", "tracing"]),
+    # System Design (CLAUDE.md Phase 8 rubric dimensions not already covered by an
+    # existing category above -- data-modeling, indexing, caching, partitioning,
+    # replication, messaging, consistency, idempotency, and observability are reused
+    # as-is rather than duplicated under this category).
+    _skill("requirements", "Requirements Gathering", "system_design"),
+    _skill("capacity-estimation", "Capacity Estimation", "system_design", ["capacity planning"]),
+    _skill("api-design", "API Design", "system_design", ["api design"]),
+    _skill("database-selection", "Database Selection", "system_design", ["database choice"]),
+    _skill("load-balancing", "Load Balancing", "system_design", ["load balancer", "load balancers"]),
+    _skill("reliability", "Reliability", "system_design"),
+    _skill("bottleneck-analysis", "Bottleneck Analysis", "system_design", ["bottleneck identification"]),
+    _skill("tradeoff-reasoning", "Tradeoff Reasoning", "system_design", ["trade-off reasoning", "tradeoffs"]),
+    _skill("communication", "Communication", "system_design"),
 ]

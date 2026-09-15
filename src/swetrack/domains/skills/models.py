@@ -19,6 +19,7 @@ SkillCategory = Literal[
     "data_systems",
     "distributed_systems",
     "reliability",
+    "system_design",
 ]
 
 

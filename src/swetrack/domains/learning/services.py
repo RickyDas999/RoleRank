@@ -29,6 +29,7 @@ from swetrack.domains.learning.schemas import (
     SkillEvent,
     SkillEventSourceType,
     SkillMastery,
+    SystemDesignAttemptResult,
 )
 from swetrack.domains.skills.normalization import get_skill_by_id
 from swetrack.ml.knowledge_tracing.bkt import DEFAULT_PARAMETERS, BKTParameters, update_mastery
@@ -38,6 +39,12 @@ _SOURCE_TYPE_BY_ACTIVITY_TYPE: dict[ActivityType, SkillEventSourceType] = {
     "system_design": "system_design_attempt",
     "concept_review": "concept_review",
 }
+
+# A rubric score is continuous ([0, 1]) and stored in full on the SkillEvent,
+# preserving partial credit. BKT itself only models a binary correct/incorrect
+# observation, so this threshold derives that binary signal for the mastery
+# update without losing the underlying continuous score anywhere in history.
+_SYSTEM_DESIGN_MASTERY_THRESHOLD = 0.5
 
 
 def create_activity(
@@ -218,6 +225,104 @@ def get_coding_attempt(session: Session, attempt_id: str) -> tuple[Attempt, Codi
     if attempt_record is None or detail_record is None:
         return None
     return _to_attempt(attempt_record), _to_coding_attempt_detail(detail_record)
+
+
+def record_system_design_attempt(
+    session: Session,
+    *,
+    activity_id: str,
+    scores: dict[str, float],
+    notes: str = "",
+    evidence_weight: float = 1.0,
+    bkt_params: BKTParameters = DEFAULT_PARAMETERS,
+) -> tuple[Attempt, SystemDesignAttemptResult, list[SkillEvent]]:
+    """Record one System Design attempt: a per-skill rubric, not a uniform pass/fail.
+
+    ``scores`` must have exactly one entry per skill the activity exercises
+    (``activity.skill_ids``) -- this is what lets one design session update
+    multiple skills by different amounts (CLAUDE.md Phase 8's Ticketmaster
+    example), rather than reusing ``_write_attempt_and_mastery``'s single
+    uniform outcome. Each score becomes its skill's SkillEvent.outcome
+    (full rubric fidelity preserved in immutable history) and, via
+    ``_SYSTEM_DESIGN_MASTERY_THRESHOLD``, one BKT mastery step.
+
+    The Attempt's overall ``success`` is derived as the mean score meeting
+    that same threshold -- a documented simplification, not a separate
+    signal, since ``AttemptRecord.success`` is a single required boolean
+    shared by every activity type.
+
+    All in one transaction. Raises ``ValueError`` if the activity does not
+    exist, is not a ``"system_design"`` activity, or if ``scores`` does not
+    cover exactly the activity's skills.
+    """
+    activity = session.get(LearningActivityRecord, activity_id)
+    if activity is None:
+        raise ValueError(f"Unknown learning activity id: {activity_id!r}")
+    if activity.activity_type != "system_design":
+        raise ValueError(
+            f"Activity {activity_id!r} is not a system design activity (type={activity.activity_type!r})"
+        )
+    expected_skill_ids = set(activity.skill_ids)
+    if set(scores.keys()) != expected_skill_ids:
+        raise ValueError(
+            f"scores must cover exactly the activity's skills {sorted(expected_skill_ids)}, "
+            f"got {sorted(scores.keys())}"
+        )
+
+    overall_success = (sum(scores.values()) / len(scores)) >= _SYSTEM_DESIGN_MASTERY_THRESHOLD
+
+    try:
+        attempt_record = AttemptRecord(activity_id=activity.id, success=overall_success, notes=notes)
+        session.add(attempt_record)
+        session.flush()  # assign attempt_record.id without committing yet
+
+        event_records = [
+            SkillEventRecord(
+                skill_id=skill_id,
+                source_type="system_design_attempt",
+                source_id=attempt_record.id,
+                outcome=score,
+                evidence_weight=evidence_weight,
+            )
+            for skill_id, score in scores.items()
+        ]
+        session.add_all(event_records)
+        session.flush()  # surface any SkillEvent constraint violation before touching mastery
+
+        for skill_id, score in scores.items():
+            _apply_sequential_mastery_update(
+                session, skill_id, correct=score >= _SYSTEM_DESIGN_MASTERY_THRESHOLD, params=bkt_params
+            )
+
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+
+    session.refresh(attempt_record)
+    for record in event_records:
+        session.refresh(record)
+    result = SystemDesignAttemptResult(attempt_id=attempt_record.id, scores=dict(scores))
+    return _to_attempt(attempt_record), result, [_to_skill_event(record) for record in event_records]
+
+
+def get_system_design_attempt(session: Session, attempt_id: str) -> tuple[Attempt, SystemDesignAttemptResult] | None:
+    """Return an Attempt and its rubric scores, reconstructed from that attempt's SkillEvents."""
+    attempt_record = session.get(AttemptRecord, attempt_id)
+    if attempt_record is None:
+        return None
+    event_records = (
+        session.query(SkillEventRecord)
+        .filter(
+            SkillEventRecord.source_id == attempt_id,
+            SkillEventRecord.source_type == "system_design_attempt",
+        )
+        .all()
+    )
+    if not event_records:
+        return None
+    scores = {record.skill_id: record.outcome for record in event_records}
+    return _to_attempt(attempt_record), SystemDesignAttemptResult(attempt_id=attempt_id, scores=scores)
 
 
 def get_skill_events(session: Session, skill_id: str) -> list[SkillEvent]:
