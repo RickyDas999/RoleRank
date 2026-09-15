@@ -1,23 +1,50 @@
-"""FastAPI service: GET /health, GET /jobs, and POST /recommend.
+"""FastAPI service: GET /health, GET /jobs, POST /recommend, and GET /opportunities/{id}/readiness.
 
 The sentence-embedding model is never touched by /health or /jobs. It is
 only loaded, lazily and cached once per process, the first time a
-POST /recommend request selects ranker="embedding" (see
-swetrack.domains.opportunities.ranking.embeddings).
+POST /recommend or GET /opportunities/{id}/readiness request selects
+ranker="embedding" (see swetrack.domains.opportunities.ranking.embeddings).
 """
 
 from __future__ import annotations
 
-from fastapi import FastAPI, HTTPException, Query
+from collections.abc import Iterator
+
+from fastapi import Depends, FastAPI, HTTPException, Query
+from sqlalchemy.orm import Session
 
 from swetrack import __version__
 from swetrack.domains.opportunities.config import DataLoadError, load_candidate_profile, load_jobs
-from swetrack.domains.opportunities.models import HealthResponse, JobRecord, RecommendRequest, RecommendResponse
+from swetrack.domains.opportunities.models import (
+    HealthResponse,
+    JobRecord,
+    RankerName,
+    RecommendRequest,
+    RecommendResponse,
+)
 from swetrack.domains.opportunities.ranking.base import Ranker
 from swetrack.domains.opportunities.ranking.embeddings import EmbeddingRanker
 from swetrack.domains.opportunities.ranking.tfidf import TfidfRanker
+from swetrack.domains.opportunities.readiness import ReadinessResult, compute_readiness
+from swetrack.infrastructure.database.base import get_engine, get_sessionmaker, init_db
 
 app = FastAPI(title="SWETrack API", version=__version__)
+
+# Module-level so every request reuses one connection pool rather than
+# opening a fresh engine per call; defaults to the local SQLite file under
+# var/ (see infrastructure/database/base.py), overridable via
+# SWETRACK_DATABASE_URL for e.g. Postgres later.
+_engine = get_engine()
+init_db(_engine)
+_SessionLocal = get_sessionmaker(_engine)
+
+
+def get_db_session() -> Iterator[Session]:
+    session = _SessionLocal()
+    try:
+        yield session
+    finally:
+        session.close()
 
 
 def _build_ranker(name: str) -> Ranker:
@@ -72,3 +99,33 @@ def recommend(request: RecommendRequest) -> RecommendResponse:
     ranker = _build_ranker(request.ranker)
     results = ranker.recommend(profile, jobs, request.top_k)
     return RecommendResponse(ranker=request.ranker, top_k=request.top_k, results=results)
+
+
+@app.get("/opportunities/{job_id}/readiness", response_model=ReadinessResult)
+def get_readiness(
+    job_id: str,
+    ranker: RankerName = Query(default="tfidf"),
+    session: Session = Depends(get_db_session),
+) -> ReadinessResult:
+    """Role Fit and Readiness for one job, against the example candidate profile and tracked mastery.
+
+    There is no per-request candidate profile here (unlike POST /recommend):
+    a GET request has no body, and this is a single-user local app with no
+    auth/user concept (CLAUDE.md explicitly avoids that), so the example
+    profile is the only candidate representation available.
+    """
+    try:
+        jobs = load_jobs()
+    except DataLoadError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    job = next((candidate for candidate in jobs if candidate.job_id == job_id), None)
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"Unknown job_id: {job_id!r}")
+
+    try:
+        profile = load_candidate_profile()
+    except DataLoadError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    return compute_readiness(session, job=job, profile=profile, ranker=_build_ranker(ranker))

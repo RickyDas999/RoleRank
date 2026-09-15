@@ -359,29 +359,37 @@ def get_study_recommendations(
     session: Session,
     *,
     top_k: int = 5,
+    skill_ids: set[str] | None = None,
     weights: StudyRankingWeights = DEFAULT_WEIGHTS,
     bkt_params: BKTParameters = DEFAULT_PARAMETERS,
     now: datetime | None = None,
 ) -> list[StudyRecommendation]:
-    """Rank every learning activity by an explainable heuristic (CLAUDE.md Phase 10).
+    """Rank learning activities by an explainable heuristic (CLAUDE.md Phase 10).
 
     A deterministic heuristic, not a learned ranking model: only the mastery
     estimates it reads (via ``SkillMasteryRecord``) come from actual ML
-    (BKT). Job/interview demand components are deferred to M10, which
-    connects opportunity skill requirements to this domain -- there is no
-    such signal to rank against yet.
+    (BKT).
 
     Per activity, each of its skills contributes a mastery gap and a
     staleness reading (days since that skill's mastery was last updated,
     via ``SkillMasteryRecord.updated_at``); the activity's score uses the
     mean across its skills. ``repetition_penalty`` counts this specific
     activity's own attempts in the last 7 days, independent of skill.
+
+    ``skill_ids``, when given, restricts ranking to activities exercising at
+    least one of those skills -- used by
+    ``opportunities.readiness.compute_readiness`` (CLAUDE.md Phase 11) to
+    surface only recommendations relevant to one job's required skills,
+    without duplicating this ranking logic there.
     """
     now = now or datetime.now(timezone.utc)
     seven_days_ago = now - timedelta(days=7)
 
     recommendations: list[StudyRecommendation] = []
     for activity in session.query(LearningActivityRecord).all():
+        if skill_ids is not None and not (set(activity.skill_ids) & skill_ids):
+            continue
+
         mastery_gaps: list[float] = []
         staleness_readings: list[float] = []
         for skill_id in activity.skill_ids:
